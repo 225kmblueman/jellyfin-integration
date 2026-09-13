@@ -18,6 +18,7 @@ This document provides setup and integration guidance for using Jellyfin as a me
 - Mobile apps and TV apps
 - Common troubleshooting
 - Helpful links
+- Integrate with your app
 
 ## Prerequisites
 - A machine to host Jellyfin (NAS, Linux server, Raspberry Pi 4+, or a cloud VM). For best performance when transcoding, use a machine with hardware acceleration support (Intel QuickSync, NVIDIA NVENC, or AMD VCE).
@@ -42,7 +43,6 @@ services:
       - ./cache:/cache
       - ./media:/media
     devices:
-      # Example for hardware acceleration on Linux (adjust per host)
       - /dev/dri:/dev/dri # Intel VAAPI
     restart: unless-stopped
 ```
@@ -121,9 +121,41 @@ Casting tips:
 - Jellyfin clients: https://jellyfin.org/clients/
 - Community support: https://forum.jellyfin.org/
 
-If you want, I can:
-- Create a branch and open a pull request for this file instead of committing to main.
-- Add a short sample docker-compose with hardware acceleration notes for Intel/NVIDIA.
-- Add a section on integrating Jellyfin with your app (OAUTH, embedding player links, or generating tokenized URLs).
+## Integrate with your app
+This section covers practical guidance for integrating your application with a Jellyfin server to provide authenticated playback, short-lived tokenized URLs, or embedded players.
+
+### Tokenized stream URLs
+- Jellyfin supports authenticated playback via the server's authentication system. To avoid exposing persistent credentials in client apps, generate short-lived access tokens on the server side and use those to request direct stream URLs.
+- Approach:
+  1. Authenticate a server-side service account (or use OAuth if you have a centralized identity provider).
+  2. Request a user-scoped token from the Jellyfin server API (or proxy the request through your backend).
+  3. Use that token to request playback URLs or to instruct a client to connect.
+- Security: ensure tokens are short-lived and scoped to only the resources required. Avoid embedding long-lived admin tokens in distributed clients.
+
+### OAuth & single-sign-on
+- If you run an identity provider for your app, integrate Jellyfin with that provider where possible (reverse proxy + single sign-on) so users can sign in once and use the same identity across services.
+- Use a reverse proxy that can handle OAuth/OIDC and inject headers or use an authentication proxy pattern to map external identity to Jellyfin users.
+
+### Embedding players & deep links
+- To embed a player in a web app, you can either:
+  - Use the direct stream URL in a custom HTML5 player (ensure cross-origin settings and CORS are configured on the Jellyfin server), or
+  - Use the official Jellyfin web client as a reference and link users to the native client for playback.
+- When embedding, respect DRM and licensing requirements. Some streams require DRM or specific client support; do not attempt to circumvent content protection rules.
+
+### DRM, licenses, and rights
+- If your content is licensed and requires DRM or tokenized delivery, implement DRM workflows (Widevine/PlayReady) at the player level and coordinate with your content providers and legal team.
+- Jellyfin is primarily an open media server and may not include turnkey DRM solutions—plan accordingly for licensed or protected content.
+
+### Example: server-side proxy to generate temp links
+1. Client requests playback for content ID X.
+2. Your backend verifies the user has access and requests an access token from Jellyfin (or proxies a request to Jellyfin).
+3. Backend returns a short-lived playback URL or a ticket to the client.
+4. Client uses that URL/ticket to play the media directly from Jellyfin.
+
+### API & docs
+- Use the Jellyfin API for programmatic control: https://jellyfin.org/docs/general/administration/api/
+- Always check the server logs and monitor requests when implementing integrations to troubleshoot CORS, authentication, and playback issues.
+
+If you’d like, I can add example server-side code snippets (Node.js/Express or Python/Flask) demonstrating token generation and playback proxying.
 
 — GitHub Copilot Chat Assistant
